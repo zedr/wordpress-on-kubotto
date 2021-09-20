@@ -1,0 +1,8 @@
+secretGenerator:
+- name: mysql-pass
+  literals:
+  - password=letmein
+resources:
+  - mysql-deployment.yaml
+  - wordpress-deployment.yaml
+  - ingress.yaml
