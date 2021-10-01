@@ -1,0 +1,108 @@
+---
+- name: "The service for the Wordpress server"
+  k8s:
+    state: "{{ k8s_state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: wordpress
+        namespace: "{{ k8s_ns }}"
+        labels:
+          app: wordpress
+      spec:
+        ports:
+          - port: 80
+        selector:
+          app: wordpress
+          tier: frontend
+        type: LoadBalancer
+
+- name: "The persistent volume claim for the Wordpress site"
+  k8s:
+    state: "{{ k8s_state }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: wp-pv-claim
+        namespace: "{{ k8s_ns }}"
+        labels:
+          app: wordpress
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: nfs-storageclass
+        resources:
+          requests:
+            storage: 20Gi
+
+- name: "A configmap for injecting additional PHP config for uploads"
+  k8s:
+    state: "{{ k8s_state }}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: php-ini-upload
+        namespace: "{{ k8s_ns }}"
+      data:
+        uploads.ini: |
+          file_uploads = On
+          memory_limit = 500M
+          upload_max_filesize = 128M
+          post_max_size = 1289M
+          max_execution_time = 600
+
+- name: "The deployment for the Wordpress site"
+  k8s:
+    state: "{{ k8s_state }}"
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: wordpress
+        namespace: "{{ k8s_ns }}"
+        labels:
+          app: wordpress
+      spec:
+        selector:
+          matchLabels:
+            app: wordpress
+            tier: frontend
+        strategy:
+          type: Recreate
+        template:
+          metadata:
+            labels:
+              app: wordpress
+              tier: frontend
+          spec:
+            containers:
+            - image: wordpress:5.6.0-php7.4
+              name: wordpress
+              env:
+              - name: WORDPRESS_DB_HOST
+                value: wordpress-mysql
+              - name: WORDPRESS_DB_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: mysql-pass
+                    key: password
+              ports:
+              - containerPort: 80
+                name: wordpress
+              volumeMounts:
+              - name: wordpress-persistent-storage
+                mountPath: /var/www/html
+              - name: php-ini-upload
+                mountPath: /usr/local/etc/php/conf.d/uploads.ini
+                subPath: uploads.ini
+            volumes:
+            - name: wordpress-persistent-storage
+              persistentVolumeClaim:
+                claimName: wp-pv-claim
+            - name: php-ini-upload
+              configMap:
+                defaultMode: 420
+                name: php-ini-upload

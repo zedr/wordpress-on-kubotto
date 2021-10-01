@@ -1,0 +1,26 @@
+---
+- name: "The Ingress for https://{{ site_fqdn }}"
+  k8s:
+    state: "{{ k8s_state }}"
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: wp-ingress
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          nginx.ingress.kubernetes.io/proxy-body-size: 128m
+          nginx.org/client-max-body-size: 128m
+        namespace: "{{ k8s_ns }}"
+      spec:
+        rules:
+        - host: "{{ site_fqdn }}"
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: wordpress
+                  port:
+                    number: 80

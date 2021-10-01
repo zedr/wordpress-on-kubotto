@@ -1,0 +1,20 @@
+---
+- hosts: localhost
+  vars:
+    k8s_state: "present"
+    k8s_ns: "wp-{{ site_id }}"
+    site_fqdn: "wp{{ site_id }}.lan"
+  tasks:
+    - include_tasks:
+        file: "templates/ns.yaml"
+
+    - include_tasks:
+        file: "templates/ingress.yaml"
+
+    - name: "The MySQL deployment for the Wordpress site"
+      include_tasks:
+        file: "templates/mysql-deployment.yaml"
+
+    - name: "The Wordpress deployment"
+      include_tasks:
+        file: "templates/wordpress-deployment.yaml"
